@@ -1,0 +1,10 @@
+[package]
+name = "forkcordion"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jordan Yelloz <jordan@yelloz.me>"]
+description = "An I/O library handling multi-fork file archives"
+keywords = ["applesingle", "appledouble", "macbinary", "fork", "rsrc"]
+license = "MIT"
+
+[dependencies]
