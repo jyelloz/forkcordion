@@ -8,3 +8,5 @@ keywords = ["applesingle", "appledouble", "macbinary", "fork", "rsrc"]
 license = "MIT"
 
 [dependencies]
+bitvec = "*"
+four-cc = "*"
