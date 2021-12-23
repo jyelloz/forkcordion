@@ -131,3 +131,22 @@ impl Default for FilenameScript {
         Self::Unspecified
     }
 }
+
+impl From<i8> for FilenameScript {
+    fn from(value: i8) -> Self {
+        if let Some(script) = NonZeroI8::new(value) {
+            Self::Script(script)
+        } else {
+            Self::Unspecified
+        }
+    }
+}
+
+impl Into<i8> for FilenameScript {
+    fn into(self) -> i8 {
+        match self {
+            Self::Unspecified => 0i8,
+            Self::Script(value) => value.get(),
+        }
+    }
+}
