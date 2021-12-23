@@ -82,7 +82,6 @@ pub enum ArchiveMember {
     Other(Segment),
 }
 
-// TODO: Impl Read for this to simplify offset bookkeeping.
 struct AppleSingleArchiveReader<R: Read> {
     reader: R,
     header: ArchiveHeader,
@@ -101,47 +100,42 @@ impl <R: Read> AppleSingleArchiveReader<R> {
         Ok(archive)
     }
     fn read_magic(&mut self) -> io::Result<()> {
-        let Self { reader, position, .. } = self;
         let mut bytes = [0u8; 4];
-        reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         if u32::from_be_bytes(bytes) != MAGIC {
             eprintln!("invalid magic: {:?}", &bytes);
             let e: Result<Self, io::Error> = Err(io::ErrorKind::Other.into());
             e?;
         }
         let mut bytes = [0u8; 4];
-        reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         if u32::from_be_bytes(bytes) != VERSION {
             eprintln!("invalid version: {:?}", &bytes);
             let e: Result<Self, io::Error> = Err(io::ErrorKind::Other.into());
             e?;
         }
-        *position += 8;
         Ok(())
     }
     fn read_header(&mut self) -> io::Result<()> {
         let mut gap = [0u8; 16];
-        self.reader.read_exact(&mut gap)?;
+        self.read_exact(&mut gap)?;
         let mut bytes = [0u8; 2];
-        self.reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         let n_segments = u16::from_be_bytes(bytes);
-        self.position += gap.len() + bytes.len();
         for _ in 0..n_segments {
             self.read_segment()?;
         }
         Ok(())
     }
     fn read_segment(&mut self) -> io::Result<()> {
-        let Self { reader, header, position, .. } = self;
         let mut bytes = [0u8; 4];
-        reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         let id = u32::from_be_bytes(bytes);
-        reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         let offset = u32::from_be_bytes(bytes);
-        reader.read_exact(&mut bytes)?;
+        self.read_exact(&mut bytes)?;
         let len = u32::from_be_bytes(bytes);
-        header.segments.insert(id, Segment { id, offset, len });
-        *position += 12;
+        self.header.segments.insert(id, Segment { id, offset, len });
         Ok(())
     }
     fn segments(self) -> SegmentIterator<R> {
@@ -151,6 +145,14 @@ impl <R: Read> AppleSingleArchiveReader<R> {
             self.position,
             Box::new(segments.into_iter()),
         )
+    }
+}
+
+impl <R: Read> Read for AppleSingleArchiveReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let bytes = self.reader.read(buf)?;
+        self.position += bytes;
+        Ok(bytes)
     }
 }
 
