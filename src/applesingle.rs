@@ -140,11 +140,10 @@ impl <R: Read> AppleSingleArchiveReader<R> {
     }
     fn segments(self) -> SegmentIterator<R> {
         let segments = self.header.segments_by_offset();
-        SegmentIterator(
-            self.reader,
-            self.position,
-            Box::new(segments.into_iter()),
-        )
+        SegmentIterator {
+            reader: self,
+            segments: Box::new(segments.into_iter()),
+        }
     }
 }
 
@@ -156,41 +155,42 @@ impl <R: Read> Read for AppleSingleArchiveReader<R> {
     }
 }
 
-struct SegmentIterator<R>(R, usize, Box<dyn std::iter::Iterator<Item=Segment>>);
+struct SegmentIterator<R: Read> {
+    reader: AppleSingleArchiveReader<R>,
+    segments: Box<dyn std::iter::Iterator<Item=Segment>>,
+}
 
 impl <R: Read> SegmentIterator<R> {
     fn skip_to(&mut self, segment: Segment) -> io::Result<()> {
-        let Self(stream, position, _) = self;
+        let Self { reader, .. } = self;
         let offset = segment.offset as usize;
-        if *position > offset {
+        let position = reader.position;
+        if position > offset {
             Err(io::ErrorKind::Unsupported)?;
         }
-        let diff = (offset - *position) as u64;
-        let mut take = stream.take(diff);
+        let diff = (offset - position) as u64;
+        let mut take = reader.take(diff);
         io::copy(&mut take, &mut io::sink())?;
-        *position = offset;
         Ok(())
     }
     fn wrap_segment(&mut self, segment: Segment) -> Option<ArchiveMember> {
         eprintln!("wrapping segment {:?}", &segment);
         self.skip_to(segment).expect("failed to seek");
-        let Self(stream, position, _) = self;
+        let Self { reader, ..} = self;
         match EntryType::try_from(segment.id) {
             Err(_) => Some(ArchiveMember::Other(segment)),
             Ok(EntryType::RealName) => {
                 let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
                 buf.resize(len, 0);
-                stream.read_exact(&mut buf).expect("failed to read filename");
-                *position += len;
+                reader.read_exact(&mut buf).expect("failed to read filename");
                 Some(ArchiveMember::RealName(Filename(buf)))
             },
             Ok(EntryType::Comment) => {
                 let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
                 buf.resize(len, 0);
-                stream.read_exact(&mut buf).expect("failed to read comment");
-                *position += len;
+                reader.read_exact(&mut buf).expect("failed to read comment");
                 Some(ArchiveMember::Comment(Comment(buf)))
             },
             Ok(id) => {
@@ -209,7 +209,7 @@ impl <R: Read> Iterator for SegmentIterator<R> {
     type Item = ArchiveMember;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let segment = self.2.next()?;
+            let segment = self.segments.next()?;
             if let Some(member) = self.wrap_segment(segment) {
                 return Some(member);
             }
