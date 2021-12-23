@@ -110,7 +110,7 @@ pub struct Folder(u16);
 
 /// A bunch of extra information which is not very useful to the typical
 /// developer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ExtendedFinderInfo {
     icon_id: i16,
     filename_script: FilenameScript,
@@ -124,4 +124,10 @@ pub struct ExtendedFinderInfo {
 pub enum FilenameScript {
     Unspecified,
     Script(NonZeroI8),
+}
+
+impl Default for FilenameScript {
+    fn default() -> Self {
+        Self::Unspecified
+    }
 }
