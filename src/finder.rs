@@ -17,9 +17,33 @@ pub struct FinderInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileType(FourCC);
 
+impl From<&[u8; 4]> for FileType {
+    fn from(buf: &[u8; 4]) -> Self {
+        Self(buf.into())
+    }
+}
+
+impl From<&[u8]> for FileType {
+    fn from(buf: &[u8]) -> Self {
+        Self(buf.into())
+    }
+}
+
 /// Mac Creator code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Creator(FourCC);
+
+impl From<&[u8; 4]> for Creator {
+    fn from(buf: &[u8; 4]) -> Self {
+        Self(buf.into())
+    }
+}
+
+impl From<&[u8]> for Creator {
+    fn from(buf: &[u8]) -> Self {
+        Self(buf.into())
+    }
+}
 
 /// Various flags that are either manipulated by the Finder or influence the way
 /// the Finder will present the file.
