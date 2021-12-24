@@ -186,6 +186,12 @@ impl <R: Read> SegmentIterator<R> {
                 reader.read_exact(&mut buf).expect("failed to read filename");
                 Some(ArchiveMember::RealName(Filename(buf)))
             },
+            Ok(EntryType::FinderInfo) => {
+                let mut buf = [0u8; 16];
+                reader.read_exact(&mut buf).expect("failed to read finder info");
+                let finf = FinderInfo::from(&buf);
+                Some(ArchiveMember::FinderInfo(finf))
+            },
             Ok(EntryType::Comment) => {
                 let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
