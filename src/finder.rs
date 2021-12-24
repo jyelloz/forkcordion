@@ -166,7 +166,7 @@ impl fmt::Display for FinderFlags {
             text.push("STATIONERY".to_string());
         }
         if self.name_locked() {
-            text.push("LOCKED".to_string());
+            text.push("NAME_LOCKED".to_string());
         }
         if self.has_bundle() {
             text.push("HAS_BUNDLE".to_string());
