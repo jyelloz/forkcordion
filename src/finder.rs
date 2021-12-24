@@ -98,14 +98,14 @@ impl FinderFlags {
 }
 
 /// A 2-dimensional point in QuickDraw's coordinate system
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Point {
     vertical: i16,
     horizontal: i16,
 }
 
 /// The ID of the window representing the folder containing this file
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Folder(u16);
 
 /// A bunch of extra information which is not very useful to the typical
