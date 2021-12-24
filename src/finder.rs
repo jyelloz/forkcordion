@@ -13,6 +13,36 @@ pub struct FinderInfo {
     pub folder: Folder,
 }
 
+impl From<&[u8; 16]> for FinderInfo {
+    fn from(bytes: &[u8; 16]) -> Self {
+        let file_type = FileType::from(&bytes[..4]);
+        let bytes = &bytes[4..];
+        let creator = Creator::from(&bytes[..4]);
+        let bytes = &bytes[4..];
+        let flags = (&[bytes[0], bytes[1]]).into();
+        // TODO: Parse the folder and location.
+        Self {
+            file_type,
+            creator,
+            flags,
+            folder: Default::default(),
+            location: Default::default(),
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for FinderInfo {
+    type Error = io::Error;
+    fn try_from(bytes: &[u8]) -> io::Result<Self> {
+        let bytes: Option<&[u8; 16]> = bytes.try_into().ok();
+        if let Some(bytes) = bytes {
+            Ok(bytes.into())
+        } else {
+            Err(io::ErrorKind::UnexpectedEof.into())
+        }
+    }
+}
+
 /// Mac File Type code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileType(FourCC);
