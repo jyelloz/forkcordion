@@ -88,7 +88,7 @@ impl From<&[u8]> for Creator {
 pub struct FinderFlags(u16);
 
 impl FinderFlags {
-    fn inner(&self) -> &BitSlice<Msb0, u16> {
+    fn inner(&self) -> &BitSlice<Lsb0, u16> {
         self.0.view_bits()
     }
     #[deprecated]
