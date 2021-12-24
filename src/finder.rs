@@ -4,7 +4,7 @@ use std::{
     num::NonZeroI8,
 };
 
-use derive_more::{From, Into, Display};
+use derive_more::{From, Into};
 
 use four_cc::FourCC;
 
@@ -83,8 +83,7 @@ impl From<&[u8]> for Creator {
 
 /// Various flags that are either manipulated by the Finder or influence the way
 /// the Finder will present the file.
-#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into, Display)]
-#[display(fmt="{:#b}", _0)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into)]
 pub struct FinderFlags(u16);
 
 impl FinderFlags {
@@ -132,6 +131,53 @@ impl FinderFlags {
     }
     pub fn is_alias(&self) -> bool {
         self.inner()[15]
+    }
+}
+
+impl fmt::Display for FinderFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut text = vec![];
+        #[allow(deprecated)]
+        if self.is_on_desktop() {
+            text.push("ON_DESKTOP".to_string());
+        }
+        text.push(format!("COLOR={}", self.color()));
+        #[allow(deprecated)]
+        if self.color_reserved() {
+            text.push("COLOR_RESERVED".to_string());
+        }
+        #[allow(deprecated)]
+        if self.requires_switch_launch() {
+            text.push("REQUIRES_SWITCH_LAUNCH".to_string());
+        }
+        if self.is_shared() {
+            text.push("SHARED".to_string());
+        }
+        if self.has_no_inits() {
+            text.push("HAS_NO_INITS".to_string());
+        }
+        if self.has_been_inited() {
+            text.push("INITED".to_string());
+        }
+        if self.has_custom_icon() {
+            text.push("CUSTOM_ICON".to_string());
+        }
+        if self.is_stationery() {
+            text.push("STATIONERY".to_string());
+        }
+        if self.name_locked() {
+            text.push("LOCKED".to_string());
+        }
+        if self.has_bundle() {
+            text.push("HAS_BUNDLE".to_string());
+        }
+        if self.is_invisible() {
+            text.push("INVISIBLE".to_string());
+        }
+        if self.is_alias() {
+            text.push("ALIAS".to_string());
+        }
+        write!(f, "{}", text.join("|"))
     }
 }
 
