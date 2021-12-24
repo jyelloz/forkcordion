@@ -177,10 +177,10 @@ impl <R: Read> SegmentIterator<R> {
         eprintln!("wrapping segment {:?}", &segment);
         self.skip_to(segment).expect("failed to seek");
         let Self { reader, ..} = self;
+        let len = segment.len as usize;
         match EntryType::try_from(segment.id) {
             Err(_) => Some(ArchiveMember::Other(segment)),
             Ok(EntryType::RealName) => {
-                let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
                 buf.resize(len, 0);
                 reader.read_exact(&mut buf).expect("failed to read filename");
@@ -193,7 +193,6 @@ impl <R: Read> SegmentIterator<R> {
                 Some(ArchiveMember::FinderInfo(finf))
             },
             Ok(EntryType::Comment) => {
-                let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
                 let len = reader.take(len as u64)
                     .read_to_end(&mut buf)
