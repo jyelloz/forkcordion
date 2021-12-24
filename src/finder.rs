@@ -246,3 +246,44 @@ impl Into<i8> for FilenameScript {
         }
     }
 }
+
+/// A bitfield data structure containing the "locked" and "protected" bits.
+#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into)]
+pub struct MacInfo(u32);
+
+impl MacInfo {
+    fn inner(&self) -> &BitSlice<Lsb0, u32> {
+        self.0.view_bits()
+    }
+    pub fn is_locked(&self) -> bool {
+        self.inner()[0]
+    }
+    pub fn is_protected(&self) -> bool {
+        self.inner()[1]
+    }
+}
+
+impl From<&[u8; 4]> for MacInfo {
+    fn from(bytes: &[u8; 4]) -> Self {
+        u32::from_be_bytes(*bytes).into()
+    }
+}
+
+impl fmt::Display for MacInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut text = vec![];
+        if self.is_locked() {
+            text.push("LOCKED".to_string());
+        }
+        if self.is_protected() {
+            text.push("PROTECTED".to_string());
+        }
+        write!(f, "{}", text.join("|"))
+    }
+}
+
+impl fmt::Debug for MacInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MacInfo({})", self)
+    }
+}
