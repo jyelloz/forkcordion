@@ -189,8 +189,10 @@ impl <R: Read> SegmentIterator<R> {
             Ok(EntryType::Comment) => {
                 let len = segment.len as usize;
                 let mut buf = Vec::with_capacity(len);
-                buf.resize(len, 0);
-                reader.read_exact(&mut buf).expect("failed to read comment");
+                let len = reader.take(len as u64)
+                    .read_to_end(&mut buf)
+                    .expect("failed to read comment");
+                buf.truncate(len);
                 Some(ArchiveMember::Comment(Comment(buf)))
             },
             Ok(id) => {
