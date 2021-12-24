@@ -2,11 +2,22 @@
 name = "forkcordion"
 version = "0.1.0"
 edition = "2021"
+description = "An I/O library for multi-fork file archives"
+homepage = "https://github.com/jyelloz/forkcordion"
+repository = "https://github.com/jyelloz/forkcordion.git"
 authors = ["Jordan Yelloz <jordan@yelloz.me>"]
-description = "An I/O library handling multi-fork file archives"
-keywords = ["applesingle", "appledouble", "macbinary", "fork", "rsrc"]
+keywords = [
+  "applesingle",
+  # "appledouble",
+  # "macbinary",
+  "fork",
+  "rsrc",
+  "resource-fork",
+]
 license = "MIT"
 
 [dependencies]
-bitvec = "*"
-four-cc = "*"
+derive_more = "0.99"
+num_enum = "0.5"
+bitvec = "0.22"
+four-cc = "0.1"
