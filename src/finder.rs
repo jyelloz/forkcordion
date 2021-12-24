@@ -1,4 +1,10 @@
-use std::num::NonZeroI8;
+use std::{
+    fmt,
+    io,
+    num::NonZeroI8,
+};
+
+use derive_more::{From, Into, Display};
 
 use four_cc::FourCC;
 
@@ -77,53 +83,67 @@ impl From<&[u8]> for Creator {
 
 /// Various flags that are either manipulated by the Finder or influence the way
 /// the Finder will present the file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FinderFlags {
-    inner: BitArr!(for 16, in Msb0, u16),
-}
+#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into, Display)]
+#[display(fmt="{:#b}", _0)]
+pub struct FinderFlags(u16);
 
 impl FinderFlags {
+    fn inner(&self) -> &BitSlice<Msb0, u16> {
+        self.0.view_bits()
+    }
     #[deprecated]
     pub fn is_on_desktop(&self) -> bool {
-        self.inner[0]
+        self.inner()[0]
     }
     pub fn color(&self) -> u8 {
-        self.inner[1..4].load_be()
+        self.inner()[1..4].load_be()
     }
     #[deprecated]
     pub fn color_reserved(&self) -> bool {
-        self.inner[4]
+        self.inner()[4]
     }
     #[deprecated]
     pub fn requires_switch_launch(&self) -> bool {
-        self.inner[5]
+        self.inner()[5]
     }
     pub fn is_shared(&self) -> bool {
-        self.inner[6]
+        self.inner()[6]
     }
     pub fn has_no_inits(&self) -> bool {
-        self.inner[7]
+        self.inner()[7]
     }
     pub fn has_been_inited(&self) -> bool {
-        self.inner[8]
+        self.inner()[8]
     }
     pub fn has_custom_icon(&self) -> bool {
-        self.inner[10]
+        self.inner()[10]
     }
     pub fn is_stationery(&self) -> bool {
-        self.inner[11]
+        self.inner()[11]
     }
     pub fn name_locked(&self) -> bool {
-        self.inner[12]
+        self.inner()[12]
     }
     pub fn has_bundle(&self) -> bool {
-        self.inner[13]
+        self.inner()[13]
     }
     pub fn is_invisible(&self) -> bool {
-        self.inner[14]
+        self.inner()[14]
     }
     pub fn is_alias(&self) -> bool {
-        self.inner[15]
+        self.inner()[15]
+    }
+}
+
+impl fmt::Debug for FinderFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "FinderFlags({})", self)
+    }
+}
+
+impl From<&[u8; 2]> for FinderFlags {
+    fn from(bytes: &[u8; 2]) -> Self {
+        Self::from(u16::from_be_bytes(*bytes))
     }
 }
 
