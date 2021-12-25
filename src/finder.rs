@@ -1,6 +1,5 @@
 use std::{
     fmt,
-    io,
     num::NonZeroI8,
 };
 
@@ -9,6 +8,7 @@ use derive_more::{From, Into};
 use four_cc::FourCC;
 
 use bitvec::prelude::*;
+use arrayref::array_ref;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FinderInfo {
@@ -21,30 +21,19 @@ pub struct FinderInfo {
 
 impl From<&[u8; 16]> for FinderInfo {
     fn from(bytes: &[u8; 16]) -> Self {
-        let file_type = FileType::from(&bytes[..4]);
-        let bytes = &bytes[4..];
-        let creator = Creator::from(&bytes[..4]);
-        let bytes = &bytes[4..];
-        let flags = (&[bytes[0], bytes[1]]).into();
-        // TODO: Parse the folder and location.
+        let file_type = FileType::from(array_ref![bytes, 0, 4]);
+        let creator = Creator::from(array_ref![bytes, 4, 4]);
+        let flags = FinderFlags::from(
+            u16::from_be_bytes(*array_ref![bytes, 8, 2])
+        );
+        let location = Point::from(array_ref![bytes, 10, 4]);
+        let folder = Folder::from(array_ref![bytes, 14, 2]);
         Self {
             file_type,
             creator,
             flags,
-            folder: Default::default(),
-            location: Default::default(),
-        }
-    }
-}
-
-impl TryFrom<&[u8]> for FinderInfo {
-    type Error = io::Error;
-    fn try_from(bytes: &[u8]) -> io::Result<Self> {
-        let bytes: Option<&[u8; 16]> = bytes.try_into().ok();
-        if let Some(bytes) = bytes {
-            Ok(bytes.into())
-        } else {
-            Err(io::ErrorKind::UnexpectedEof.into())
+            location,
+            folder,
         }
     }
 }
@@ -59,24 +48,12 @@ impl From<&[u8; 4]> for FileType {
     }
 }
 
-impl From<&[u8]> for FileType {
-    fn from(buf: &[u8]) -> Self {
-        Self(buf.into())
-    }
-}
-
 /// Mac Creator code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Creator(FourCC);
 
 impl From<&[u8; 4]> for Creator {
     fn from(buf: &[u8; 4]) -> Self {
-        Self(buf.into())
-    }
-}
-
-impl From<&[u8]> for Creator {
-    fn from(buf: &[u8]) -> Self {
         Self(buf.into())
     }
 }
@@ -200,9 +177,23 @@ pub struct Point {
     horizontal: i16,
 }
 
+impl From<&[u8; 4]> for Point {
+    fn from(bytes: &[u8; 4]) -> Self {
+        let vertical = i16::from_be_bytes(*array_ref![bytes, 0, 2]);
+        let horizontal = i16::from_be_bytes(*array_ref![bytes, 2, 2]);
+        Self { vertical, horizontal }
+    }
+}
+
 /// The ID of the window representing the folder containing this file
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Folder(u16);
+
+impl From<&[u8; 2]> for Folder {
+    fn from(bytes: &[u8; 2]) -> Self {
+        Self(u16::from_be_bytes(*bytes))
+    }
+}
 
 /// A bunch of extra information which is not very useful to the typical
 /// developer.
