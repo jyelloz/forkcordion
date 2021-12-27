@@ -234,12 +234,6 @@ impl <'a, R: Read> SegmentReader<'a, R> {
     }
 }
 
-impl <'a, R: Read> Read for SegmentReader<'a, R> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
-    }
-}
-
 pub fn parse<R: Read>(archive: R) -> io::Result<Archive<R>> {
     let mut reader = AppleSingleArchiveReader::new(archive)?;
     let segments = reader.segments_by_offset().into_iter();
