@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    fmt,
     io::{
         self,
         prelude::*,
@@ -9,14 +10,16 @@ use std::{
 use num_enum::{TryFromPrimitive, IntoPrimitive};
 
 use super::{
-    archive::Archive,
-    DataFork,
-    ResourceFork,
     Filename,
     Comment,
     Dates,
     FinderInfo,
     MacInfo,
+    archive::Archive,
+    io::{
+        ReadExt as _,
+        CountingReader,
+    },
 };
 
 const MAGIC: u32 = 0x0005_1600;
@@ -55,6 +58,21 @@ pub struct Segment {
     pub len: u32,
 }
 
+impl Segment {
+    fn entry_type(&self) -> Option<EntryType> {
+        self.id.try_into().ok()
+    }
+    pub fn offset_u64(&self) -> u64 {
+        self.offset as u64
+    }
+    pub fn len_usize(&self) -> usize {
+        self.len as usize
+    }
+    pub fn len_u64(&self) -> u64 {
+        self.len as u64
+    }
+}
+
 #[derive(Default)]
 struct ArchiveHeader {
     segments: BTreeMap<u32, Segment>,
@@ -70,30 +88,42 @@ impl ArchiveHeader {
     }
 }
 
-#[derive(Debug)]
-pub enum ArchiveMember {
-    DataFork(DataFork),
-    ResourceFork(ResourceFork),
+pub enum ArchiveMember<'a> {
+    DataFork(Box<dyn 'a + Read>),
+    ResourceFork(Box<dyn 'a + Read>),
     RealName(Filename),
     Comment(Comment),
     FileDates(Dates),
     FinderInfo(FinderInfo),
     MacInfo(MacInfo),
-    Other(Segment),
+    Other(u32, Box<dyn 'a + Read>),
 }
 
-struct AppleSingleArchiveReader<R: Read> {
-    reader: R,
+impl <'a> fmt::Debug for ArchiveMember<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DataFork(_) => write!(f, "DataFork(..)"),
+            Self::ResourceFork(_) => write!(f, "ResourceFork(..)"),
+            Self::RealName(filename) => write!(f, "RealName({})", filename),
+            Self::Comment(comment) =>  write!(f, "Comment({})", comment),
+            Self::FileDates(dates) => write!(f, "FileDates({:?})", dates),
+            Self::FinderInfo(info) => write!(f, "FinderInfo({:?})", info),
+            Self::MacInfo(info) => write!(f, "MacInfo({})", info),
+            Self::Other(id, _) => write!(f, "Other({}, ..)", id),
+        }
+    }
+}
+
+struct AppleSingleArchiveReader<R> {
+    reader: CountingReader<R>,
     header: ArchiveHeader,
-    position: usize,
 }
 
 impl <R: Read> AppleSingleArchiveReader<R> {
     fn new(reader: R) -> io::Result<Self> {
         let mut archive = Self {
-            reader,
+            reader: reader.counting(),
             header: ArchiveHeader::default(),
-            position: 0,
         };
         archive.read_magic()?;
         archive.read_header()?;
@@ -103,15 +133,13 @@ impl <R: Read> AppleSingleArchiveReader<R> {
         let mut bytes = [0u8; 4];
         self.read_exact(&mut bytes)?;
         if u32::from_be_bytes(bytes) != MAGIC {
-            eprintln!("invalid magic: {:?}", &bytes);
-            let e: Result<Self, io::Error> = Err(io::ErrorKind::Other.into());
+            let e: io::Result<_> = Err(io::ErrorKind::Other.into());
             e?;
         }
         let mut bytes = [0u8; 4];
         self.read_exact(&mut bytes)?;
         if u32::from_be_bytes(bytes) != VERSION {
-            eprintln!("invalid version: {:?}", &bytes);
-            let e: Result<Self, io::Error> = Err(io::ErrorKind::Other.into());
+            let e: io::Result<_> = Err(io::ErrorKind::Other.into());
             e?;
         }
         Ok(())
@@ -138,97 +166,98 @@ impl <R: Read> AppleSingleArchiveReader<R> {
         self.header.segments.insert(id, Segment { id, offset, len });
         Ok(())
     }
-    fn segments(self) -> SegmentIterator<R> {
-        let segments = self.header.segments_by_offset();
-        SegmentIterator {
-            reader: self,
-            segments: Box::new(segments.into_iter()),
-        }
+    fn segments_by_offset(&self) -> Vec<Segment> {
+        self.header.segments_by_offset()
+    }
+    pub fn skip_to(&mut self, offset: u64) -> io::Result<()> {
+        self.reader.skip_to(offset)?;
+        Ok(())
     }
 }
 
 impl <R: Read> Read for AppleSingleArchiveReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let bytes = self.reader.read(buf)?;
-        self.position += bytes;
-        Ok(bytes)
+        self.reader.read(buf)
     }
 }
 
-struct SegmentIterator<R: Read> {
-    reader: AppleSingleArchiveReader<R>,
-    segments: Box<dyn std::iter::Iterator<Item=Segment>>,
+struct SegmentReader<'a, R: Read> {
+    segment: Segment,
+    reader: io::Take<&'a mut AppleSingleArchiveReader<R>>,
 }
 
-impl <R: Read> SegmentIterator<R> {
-    fn skip_to(&mut self, segment: Segment) -> io::Result<()> {
-        let Self { reader, .. } = self;
-        let offset = segment.offset as usize;
-        let position = reader.position;
-        if position > offset {
-            Err(io::ErrorKind::Unsupported)?;
-        }
-        let diff = (offset - position) as u64;
-        let mut take = reader.take(diff);
-        io::copy(&mut take, &mut io::sink())?;
-        Ok(())
+impl <'a, R: Read> SegmentReader<'a, R> {
+    pub fn from_segment(segment: Segment, reader: &'a mut AppleSingleArchiveReader<R>) -> io::Result<Self> {
+        reader.skip_to(segment.offset_u64())?;
+        let reader = reader.take(segment.len_u64());
+        Ok(Self { segment, reader })
     }
-    fn wrap_segment(&mut self, segment: Segment) -> Option<ArchiveMember> {
-        eprintln!("wrapping segment {:?}", &segment);
-        self.skip_to(segment).expect("failed to seek");
-        let Self { reader, ..} = self;
-        let len = segment.len as usize;
-        match EntryType::try_from(segment.id) {
-            Err(_) => Some(ArchiveMember::Other(segment)),
-            Ok(EntryType::RealName) => {
+    fn wrap(&mut self) -> io::Result<ArchiveMember> {
+        let Self { segment, reader } = self;
+        let len = segment.len_usize();
+        let id = segment.id;
+        let member = match segment.entry_type() {
+            Some(EntryType::RealName) => {
                 let mut buf = Vec::with_capacity(len);
-                buf.resize(len, 0);
-                reader.read_exact(&mut buf).expect("failed to read filename");
-                Some(ArchiveMember::RealName(Filename(buf)))
+                reader.read_to_end(&mut buf)?;
+                ArchiveMember::RealName(Filename(buf))
             },
-            Ok(EntryType::FinderInfo) => {
+            Some(EntryType::Comment) => {
+                let mut buf = Vec::with_capacity(len);
+                reader.read_to_end(&mut buf)?;
+                ArchiveMember::Comment(Comment(buf))
+            },
+            Some(EntryType::FinderInfo) => {
                 let mut buf = [0u8; 16];
-                reader.read_exact(&mut buf).expect("failed to read finder info");
-                let finf = FinderInfo::from(&buf);
-                Some(ArchiveMember::FinderInfo(finf))
+                reader.read_exact(&mut buf)?;
+                ArchiveMember::FinderInfo((&buf).into())
             },
-            Ok(EntryType::Comment) => {
-                let mut buf = Vec::with_capacity(len);
-                let len = reader.take(len as u64)
-                    .read_to_end(&mut buf)
-                    .expect("failed to read comment");
-                buf.truncate(len);
-                Some(ArchiveMember::Comment(Comment(buf)))
+            Some(EntryType::FileDates) => {
+                let mut buf = [0u8; 16];
+                reader.read_exact(&mut buf)?;
+                ArchiveMember::FileDates((&buf).into())
             },
-            Ok(id) => {
-                eprintln!(
-                    "unsupported archive member type: {:?}, {:?}",
-                    id,
-                    segment,
-                );
-                None
-            }
-        }
+            Some(EntryType::MacintoshFileInfo) => {
+                let mut buf = [0u8; 4];
+                reader.read_exact(&mut buf)?;
+                ArchiveMember::MacInfo((&buf).into())
+            },
+            Some(EntryType::ResourceFork) => ArchiveMember::ResourceFork(
+                Box::new(reader)
+            ),
+            Some(EntryType::DataFork) => ArchiveMember::DataFork(
+                Box::new(reader)
+            ),
+            _ => ArchiveMember::Other(id, Box::new(reader)),
+        };
+        Ok(member)
     }
 }
 
-impl <R: Read> Iterator for SegmentIterator<R> {
-    type Item = ArchiveMember;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let segment = self.segments.next()?;
-            if let Some(member) = self.wrap_segment(segment) {
-                return Some(member);
-            }
-        }
+impl <'a, R: Read> Read for SegmentReader<'a, R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.reader.read(buf)
     }
 }
 
-pub fn parse<R: Read>(archive: R) -> io::Result<Archive> {
-    let reader = AppleSingleArchiveReader::new(archive)?;
-    let iter = reader.segments();
-    for item in iter {
-        println!("{:?}", &item);
+pub fn parse<R: Read>(archive: R) -> io::Result<Archive<R>> {
+    let mut reader = AppleSingleArchiveReader::new(archive)?;
+    let segments = reader.segments_by_offset().into_iter();
+    for segment in segments {
+        let mut reader = SegmentReader::from_segment(segment, &mut reader)?;
+        let member = reader.wrap()?;
+        eprintln!("{:?}", member);
+        match member {
+            ArchiveMember::ResourceFork(mut fork) => {
+                eprintln!("writing rsrc fork {:?} to stdout", segment);
+                io::copy(&mut fork, &mut io::stdout())?;
+            },
+            ArchiveMember::DataFork(mut fork) => {
+                eprintln!("writing data fork {:?} to stdout", segment);
+                io::copy(&mut fork, &mut io::stdout())?;
+            },
+            _ => {},
+        };
     }
     Archive::builder()
         .format(FORMAT_NAME.into())
