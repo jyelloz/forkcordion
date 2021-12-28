@@ -192,8 +192,8 @@ impl <'a, R: Read> SegmentReader<'a, R> {
         let reader = reader.take(segment.len_u64());
         Ok(Self { segment, reader })
     }
-    fn wrap(&mut self) -> io::Result<ArchiveMember> {
-        let Self { segment, reader } = self;
+    fn wrap(self) -> io::Result<ArchiveMember<'a>> {
+        let Self { segment, mut reader } = self;
         let len = segment.len_usize();
         let id = segment.id;
         let member = match segment.entry_type() {
@@ -238,7 +238,7 @@ pub fn parse<R: Read>(archive: R) -> io::Result<Archive<R>> {
     let mut reader = AppleSingleArchiveReader::new(archive)?;
     let segments = reader.segments_by_offset().into_iter();
     for segment in segments {
-        let mut reader = SegmentReader::from_segment(segment, &mut reader)?;
+        let reader = SegmentReader::from_segment(segment, &mut reader)?;
         let member = reader.wrap()?;
         eprintln!("{:?}", member);
         match member {
