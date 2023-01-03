@@ -23,9 +23,12 @@ bitvec = "1"
 deku = "0.15"
 four-cc = "0.1"
 time = "0.3"
-clio = "0.1"
 console = "0.15"
 
 [dependencies.clap]
-version = "3"
+version = "4"
 features = ["std", "color", "suggestions", "derive"]
+
+[dependencies.clio]
+version = "0.2"
+features = ["clap-parse"]
