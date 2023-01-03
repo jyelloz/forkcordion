@@ -64,7 +64,7 @@ impl From<&[u8; 4]> for Creator {
 pub struct FinderFlags(u16);
 
 impl FinderFlags {
-    fn inner(&self) -> &BitSlice<Lsb0, u16> {
+    fn inner(&self) -> &BitSlice<u16, Lsb0> {
         self.0.view_bits()
     }
     #[deprecated]
@@ -243,7 +243,7 @@ impl Into<i8> for FilenameScript {
 pub struct MacInfo(u32);
 
 impl MacInfo {
-    fn inner(&self) -> &BitSlice<Lsb0, u32> {
+    fn inner(&self) -> &BitSlice<u32, Lsb0> {
         self.0.view_bits()
     }
     pub fn is_locked(&self) -> bool {

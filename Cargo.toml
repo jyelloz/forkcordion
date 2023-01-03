@@ -19,7 +19,7 @@ license = "MIT"
 [dependencies]
 derive_more = "0.99"
 num_enum = "0.5"
-bitvec = "0.22"
+bitvec = "1"
 four-cc = "0.1"
 time = "0.3"
 arrayref = "0.3"
