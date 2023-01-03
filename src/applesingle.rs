@@ -188,7 +188,7 @@ struct SegmentReader<'a, R: Read> {
 }
 
 impl <'a, R: Read> SegmentReader<'a, R> {
-    pub fn from_segment(segment: Segment, reader: &'a mut AppleSingleArchiveReader<R>) -> io::Result<Self> {
+    fn from_segment(segment: Segment, reader: &'a mut AppleSingleArchiveReader<R>) -> io::Result<Self> {
         reader.skip_to(segment.offset_u64())?;
         let reader = reader.take(segment.len_u64());
         Ok(Self { segment, reader })
@@ -240,10 +240,10 @@ impl <'a, R: Read> SegmentReader<'a, R> {
 
 pub fn parse<R: Read>(archive: R) -> io::Result<Archive<R>> {
     let mut reader = AppleSingleArchiveReader::new(archive)?;
-    let segments = reader.segments_by_offset().into_iter();
+    let segments = reader.segments_by_offset();
     for segment in segments {
-        let reader = SegmentReader::from_segment(segment, &mut reader)?;
-        let member = reader.wrap()?;
+        let member = SegmentReader::from_segment(segment, &mut reader)
+            .and_then(SegmentReader::wrap)?;
         eprintln!("{:?}", member);
         match member {
             ArchiveMember::ResourceFork(mut fork) => {
