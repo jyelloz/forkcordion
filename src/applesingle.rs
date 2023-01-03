@@ -8,6 +8,7 @@ use std::{
 };
 
 use num_enum::{TryFromPrimitive, IntoPrimitive};
+use deku::prelude::*;
 
 use super::{
     Filename,
@@ -210,17 +211,20 @@ impl <'a, R: Read> SegmentReader<'a, R> {
             Some(EntryType::FinderInfo) => {
                 let mut buf = [0u8; 16];
                 reader.read_exact(&mut buf)?;
-                ArchiveMember::FinderInfo((&buf).into())
+                let (_, info) = FinderInfo::from_bytes((&buf, 0))?;
+                ArchiveMember::FinderInfo(info)
             },
             Some(EntryType::FileDates) => {
                 let mut buf = [0u8; 16];
                 reader.read_exact(&mut buf)?;
-                ArchiveMember::FileDates((&buf).into())
+                let (_, dates) = Dates::from_bytes((&buf, 0))?;
+                ArchiveMember::FileDates(dates)
             },
             Some(EntryType::MacintoshFileInfo) => {
                 let mut buf = [0u8; 4];
                 reader.read_exact(&mut buf)?;
-                ArchiveMember::MacInfo((&buf).into())
+                let (_, info) = MacInfo::from_bytes((&buf, 0))?;
+                ArchiveMember::MacInfo(info)
             },
             Some(EntryType::ResourceFork) => ArchiveMember::ResourceFork(
                 Box::new(reader)

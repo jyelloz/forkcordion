@@ -5,12 +5,10 @@ use std::{
 
 use derive_more::{From, Into};
 
-use four_cc::FourCC;
+use four_cc::FourCC as ForeignFourCC;
+use deku::{prelude::*, bitvec::{BitSlice, Msb0}};
 
-use bitvec::prelude::*;
-use arrayref::array_ref;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FinderInfo {
     pub file_type: FileType,
     pub creator: Creator,
@@ -19,139 +17,135 @@ pub struct FinderInfo {
     pub folder: Folder,
 }
 
-impl From<&[u8; 16]> for FinderInfo {
-    fn from(bytes: &[u8; 16]) -> Self {
-        let file_type = FileType::from(array_ref![bytes, 0, 4]);
-        let creator = Creator::from(array_ref![bytes, 4, 4]);
-        let flags = FinderFlags::from(
-            u16::from_be_bytes(*array_ref![bytes, 8, 2])
-        );
-        let location = Point::from(array_ref![bytes, 10, 4]);
-        let folder = Folder::from(array_ref![bytes, 14, 2]);
-        Self {
-            file_type,
-            creator,
-            flags,
-            location,
-            folder,
-        }
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct FourCC(ForeignFourCC);
+
+impl<'a, Ctx> DekuRead<'a, Ctx> for FourCC
+    where Ctx: Copy,
+          u8: DekuRead<'a, Ctx> {
+    fn read(
+        input: &'a BitSlice<u8, Msb0>,
+        ctx: Ctx,
+    ) -> Result<(&'a BitSlice<u8, Msb0>, Self), DekuError>
+        where Self: Sized {
+        let (rest, bytes): (_, [u8; 4]) = DekuRead::read(input, ctx)?;
+        let fourcc = ForeignFourCC(bytes);
+        Ok((rest, Self(fourcc)))
+    }
+}
+
+impl<Ctx> DekuWrite<Ctx> for FourCC
+    where Ctx: Copy,
+          u8: deku::DekuWrite<Ctx> {
+    fn write(
+        &self,
+        output: &mut deku::bitvec::BitVec<u8, Msb0>,
+        ctx: Ctx,
+    ) -> Result<(), DekuError> {
+        DekuWrite::write(&self.0.0, output, ctx)
+    }
+}
+
+impl fmt::Debug for FourCC {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
+    }
+}
+impl fmt::Display for FourCC {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
 /// Mac File Type code
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
 pub struct FileType(FourCC);
 
-impl From<&[u8; 4]> for FileType {
-    fn from(buf: &[u8; 4]) -> Self {
-        Self(buf.into())
-    }
-}
-
 /// Mac Creator code
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
 pub struct Creator(FourCC);
-
-impl From<&[u8; 4]> for Creator {
-    fn from(buf: &[u8; 4]) -> Self {
-        Self(buf.into())
-    }
-}
 
 /// Various flags that are either manipulated by the Finder or influence the way
 /// the Finder will present the file.
-#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into)]
-pub struct FinderFlags(u16);
+#[derive(DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
+#[deku(endian="big")]
+pub struct FinderFlags {
+    #[deku(bits = "1")]
+    #[deprecated]
+    pub is_on_desktop: bool,
+    #[deku(bits = "3")]
+    pub color: u8,
+    #[deku(bits = "1")]
+    pub color_reserved: bool,
 
-impl FinderFlags {
-    fn inner(&self) -> &BitSlice<u16, Lsb0> {
-        self.0.view_bits()
-    }
     #[deprecated]
-    pub fn is_on_desktop(&self) -> bool {
-        self.inner()[0]
-    }
-    pub fn color(&self) -> u8 {
-        self.inner()[1..4].load_be()
-    }
-    #[deprecated]
-    pub fn color_reserved(&self) -> bool {
-        self.inner()[4]
-    }
-    #[deprecated]
-    pub fn requires_switch_launch(&self) -> bool {
-        self.inner()[5]
-    }
-    pub fn is_shared(&self) -> bool {
-        self.inner()[6]
-    }
-    pub fn has_no_inits(&self) -> bool {
-        self.inner()[7]
-    }
-    pub fn has_been_inited(&self) -> bool {
-        self.inner()[8]
-    }
-    pub fn has_custom_icon(&self) -> bool {
-        self.inner()[10]
-    }
-    pub fn is_stationery(&self) -> bool {
-        self.inner()[11]
-    }
-    pub fn name_locked(&self) -> bool {
-        self.inner()[12]
-    }
-    pub fn has_bundle(&self) -> bool {
-        self.inner()[13]
-    }
-    pub fn is_invisible(&self) -> bool {
-        self.inner()[14]
-    }
-    pub fn is_alias(&self) -> bool {
-        self.inner()[15]
-    }
+    #[deku(bits = "1")]
+    pub requires_switch_launch: bool,
+
+    #[deku(bits = "1")]
+    pub is_shared: bool,
+
+    #[deku(bits = "1")]
+    pub has_no_inits: bool ,
+
+    #[deku(bits = "1")]
+    pub has_been_inited: bool,
+
+    #[deku(bits = "1", pad_bits_before = "1")]
+    pub has_custom_icon: bool,
+    #[deku(bits = "1")]
+    pub is_stationery: bool,
+    #[deku(bits = "1")]
+    pub name_locked: bool,
+    #[deku(bits = "1")]
+    pub has_bundle: bool,
+    #[deku(bits = "1")]
+    pub is_invisible: bool,
+    #[deku(bits = "1")]
+    pub is_alias: bool,
 }
 
 impl fmt::Display for FinderFlags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut text = vec![];
         #[allow(deprecated)]
-        if self.is_on_desktop() {
+        if self.is_on_desktop {
             text.push("ON_DESKTOP".to_string());
         }
-        text.push(format!("COLOR={}", self.color()));
+        text.push(format!("COLOR={}", self.color));
         #[allow(deprecated)]
-        if self.color_reserved() {
+        if self.color_reserved {
             text.push("COLOR_RESERVED".to_string());
         }
         #[allow(deprecated)]
-        if self.requires_switch_launch() {
+        if self.requires_switch_launch {
             text.push("REQUIRES_SWITCH_LAUNCH".to_string());
         }
-        if self.is_shared() {
+        if self.is_shared {
             text.push("SHARED".to_string());
         }
-        if self.has_no_inits() {
+        if self.has_no_inits {
             text.push("HAS_NO_INITS".to_string());
         }
-        if self.has_been_inited() {
+        if self.has_been_inited {
             text.push("INITED".to_string());
         }
-        if self.has_custom_icon() {
+        if self.has_custom_icon {
             text.push("CUSTOM_ICON".to_string());
         }
-        if self.is_stationery() {
+        if self.is_stationery {
             text.push("STATIONERY".to_string());
         }
-        if self.name_locked() {
+        if self.name_locked {
             text.push("NAME_LOCKED".to_string());
         }
-        if self.has_bundle() {
+        if self.has_bundle {
             text.push("HAS_BUNDLE".to_string());
         }
-        if self.is_invisible() {
+        if self.is_invisible {
             text.push("INVISIBLE".to_string());
         }
-        if self.is_alias() {
+        if self.is_alias {
             text.push("ALIAS".to_string());
         }
         write!(f, "{}", text.join("|"))
@@ -164,40 +158,24 @@ impl fmt::Debug for FinderFlags {
     }
 }
 
-impl From<&[u8; 2]> for FinderFlags {
-    fn from(bytes: &[u8; 2]) -> Self {
-        Self::from(u16::from_be_bytes(*bytes))
-    }
-}
-
 /// A 2-dimensional point in QuickDraw's coordinate system
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, DekuRead, DekuWrite, Default, Clone, Copy, PartialEq, Eq)]
+#[deku(endian = "big")]
 pub struct Point {
+    #[deku(bits = "16")]
     vertical: i16,
+    #[deku(bits = "16")]
     horizontal: i16,
 }
 
-impl From<&[u8; 4]> for Point {
-    fn from(bytes: &[u8; 4]) -> Self {
-        let vertical = i16::from_be_bytes(*array_ref![bytes, 0, 2]);
-        let horizontal = i16::from_be_bytes(*array_ref![bytes, 2, 2]);
-        Self { vertical, horizontal }
-    }
-}
-
 /// The ID of the window representing the folder containing this file
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Folder(u16);
-
-impl From<&[u8; 2]> for Folder {
-    fn from(bytes: &[u8; 2]) -> Self {
-        Self(u16::from_be_bytes(*bytes))
-    }
-}
+#[derive(Debug, DekuRead, DekuWrite, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[deku(endian = "big")]
+pub struct Folder(#[deku(bits = "16")] u16);
 
 /// A bunch of extra information which is not very useful to the typical
 /// developer.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, DekuRead, DekuWrite, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ExtendedFinderInfo {
     icon_id: i16,
     filename_script: FilenameScript,
@@ -207,9 +185,13 @@ pub struct ExtendedFinderInfo {
 
 /// The script used to display the filename. If unspecified, then the finder
 /// should use whatever the user currently is using.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
+#[deku(type = "i8")]
 pub enum FilenameScript {
+    #[deku(id = "0")]
     Unspecified,
+    //FIXME: not sure if this is correct.
+    #[deku(id = "1")]
     Script(NonZeroI8),
 }
 
@@ -239,34 +221,21 @@ impl Into<i8> for FilenameScript {
 }
 
 /// A bitfield data structure containing the "locked" and "protected" bits.
-#[derive(Default, Clone, Copy, PartialEq, Eq, From, Into)]
-pub struct MacInfo(u32);
-
-impl MacInfo {
-    fn inner(&self) -> &BitSlice<u32, Lsb0> {
-        self.0.view_bits()
-    }
-    pub fn is_locked(&self) -> bool {
-        self.inner()[0]
-    }
-    pub fn is_protected(&self) -> bool {
-        self.inner()[1]
-    }
-}
-
-impl From<&[u8; 4]> for MacInfo {
-    fn from(bytes: &[u8; 4]) -> Self {
-        u32::from_be_bytes(*bytes).into()
-    }
+#[derive(Default, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq, From, Into)]
+pub struct MacInfo {
+    #[deku(bits = "1")]
+    pub is_locked: bool,
+    #[deku(bits = "1", pad_bits_after = "30")]
+    pub is_protected: bool,
 }
 
 impl fmt::Display for MacInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut text = vec![];
-        if self.is_locked() {
+        if self.is_locked {
             text.push("LOCKED".to_string());
         }
-        if self.is_protected() {
+        if self.is_protected {
             text.push("PROTECTED".to_string());
         }
         write!(f, "{}", text.join("|"))
