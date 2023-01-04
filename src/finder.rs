@@ -200,25 +200,6 @@ impl Default for FilenameScript {
     }
 }
 
-impl From<i8> for FilenameScript {
-    fn from(value: i8) -> Self {
-        if let Some(script) = NonZeroI8::new(value) {
-            Self::Script(script)
-        } else {
-            Self::Unspecified
-        }
-    }
-}
-
-impl Into<i8> for FilenameScript {
-    fn into(self) -> i8 {
-        match self {
-            Self::Unspecified => 0i8,
-            Self::Script(value) => value.get(),
-        }
-    }
-}
-
 /// A bitfield data structure containing the "locked" and "protected" bits.
 #[derive(Default, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq, From, Into)]
 pub struct MacInfo {
