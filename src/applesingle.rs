@@ -23,9 +23,6 @@ use super::{
     },
 };
 
-const MAGIC: u32 = 0x0005_1600;
-const VERSION: u32 = 0x0002_0000;
-
 const FORMAT_NAME: &str = "AppleSingle";
 
 #[derive(
@@ -52,7 +49,15 @@ enum EntryType {
     AFPDirectoryID,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(DekuRead, DekuWrite)]
+#[deku(endian = "big", magic = b"\x00\x05\x16\x00\x00\x02\x00\x00")]
+struct AppleSingleHeader {
+    #[deku(pad_bytes_before = "16")]
+    n_segments: u16,
+}
+
+#[derive(Debug, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
+#[deku(endian = "big")]
 pub struct Segment {
     pub id: u32,
     pub offset: u32,
@@ -126,45 +131,24 @@ impl <R: Read> AppleSingleArchiveReader<R> {
             reader: reader.counting(),
             header: ArchiveHeader::default(),
         };
-        archive.read_magic()?;
         archive.read_header()?;
         Ok(archive)
     }
-    fn read_magic(&mut self) -> io::Result<()> {
-        let mut bytes = [0u8; 4];
-        self.read_exact(&mut bytes)?;
-        if u32::from_be_bytes(bytes) != MAGIC {
-            let e: io::Result<_> = Err(io::ErrorKind::Other.into());
-            e?;
-        }
-        let mut bytes = [0u8; 4];
-        self.read_exact(&mut bytes)?;
-        if u32::from_be_bytes(bytes) != VERSION {
-            let e: io::Result<_> = Err(io::ErrorKind::Other.into());
-            e?;
-        }
-        Ok(())
-    }
     fn read_header(&mut self) -> io::Result<()> {
-        let mut gap = [0u8; 16];
-        self.read_exact(&mut gap)?;
-        let mut bytes = [0u8; 2];
+        let mut bytes = [0u8; 26];
         self.read_exact(&mut bytes)?;
-        let n_segments = u16::from_be_bytes(bytes);
+        let (_, header) = AppleSingleHeader::from_bytes((&bytes, 0))?;
+        let AppleSingleHeader { n_segments } = header;
         for _ in 0..n_segments {
             self.read_segment()?;
         }
         Ok(())
     }
     fn read_segment(&mut self) -> io::Result<()> {
-        let mut bytes = [0u8; 4];
+        let mut bytes = [0u8; 12];
         self.read_exact(&mut bytes)?;
-        let id = u32::from_be_bytes(bytes);
-        self.read_exact(&mut bytes)?;
-        let offset = u32::from_be_bytes(bytes);
-        self.read_exact(&mut bytes)?;
-        let len = u32::from_be_bytes(bytes);
-        self.header.segments.insert(id, Segment { id, offset, len });
+        let (_, segment) = Segment::from_bytes((&bytes, 0))?;
+        self.header.segments.insert(segment.id, segment);
         Ok(())
     }
     fn segments_by_offset(&self) -> Vec<Segment> {
