@@ -20,12 +20,10 @@ pub struct FinderInfo {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct FourCC(ForeignFourCC);
 
-impl<'a, Ctx> DekuRead<'a, Ctx> for FourCC
-    where Ctx: Copy,
-          u8: DekuRead<'a, Ctx> {
+impl<'a, C> DekuRead<'a, C> for FourCC where C: Copy, u8: DekuRead<'a, C> {
     fn read(
         input: &'a BitSlice<u8, Msb0>,
-        ctx: Ctx,
+        ctx: C,
     ) -> Result<(&'a BitSlice<u8, Msb0>, Self), DekuError>
         where Self: Sized {
         let (rest, bytes): (_, [u8; 4]) = DekuRead::read(input, ctx)?;
@@ -34,13 +32,11 @@ impl<'a, Ctx> DekuRead<'a, Ctx> for FourCC
     }
 }
 
-impl<Ctx> DekuWrite<Ctx> for FourCC
-    where Ctx: Copy,
-          u8: deku::DekuWrite<Ctx> {
+impl<C> DekuWrite<C> for FourCC where C: Copy, u8: deku::DekuWrite<C> {
     fn write(
         &self,
         output: &mut deku::bitvec::BitVec<u8, Msb0>,
-        ctx: Ctx,
+        ctx: C,
     ) -> Result<(), DekuError> {
         DekuWrite::write(&self.0.0, output, ctx)
     }
