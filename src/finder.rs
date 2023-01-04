@@ -190,8 +190,7 @@ pub struct ExtendedFinderInfo {
 pub enum FilenameScript {
     #[deku(id = "0")]
     Unspecified,
-    //FIXME: not sure if this is correct.
-    #[deku(id = "1")]
+    #[deku(id_pat = "_")]
     Script(NonZeroI8),
 }
 
