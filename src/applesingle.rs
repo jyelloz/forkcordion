@@ -222,27 +222,61 @@ impl <'a, R: Read> SegmentReader<'a, R> {
     }
 }
 
-pub fn parse<R: Read>(archive: R) -> io::Result<Archive<R>> {
+pub enum Fork {
+    Data,
+    Rsrc,
+    Other(u32),
+}
+pub trait Handler {
+    fn sink(&mut self, fork: Fork) -> Option<Box<dyn Write>>;
+}
+
+pub fn parse<R: Read, H: Handler>(
+    archive: R,
+    handler: &mut H,
+) -> io::Result<Archive> {
     let mut reader = AppleSingleArchiveReader::new(archive)?;
     let segments = reader.segments_by_offset();
+    let mut builder = Archive::builder();
+    builder.format(FORMAT_NAME.into());
     for segment in segments {
         let member = SegmentReader::from_segment(segment, &mut reader)
             .and_then(SegmentReader::wrap)?;
         eprintln!("{:?}", member);
         match member {
             ArchiveMember::ResourceFork(mut fork) => {
-                eprintln!("writing rsrc fork {:?} to stdout", segment);
-                io::copy(&mut fork, &mut io::stdout())?;
+                if let Some(mut sink) = handler.sink(Fork::Rsrc) {
+                    io::copy(&mut fork, &mut sink)?;
+                }
             },
             ArchiveMember::DataFork(mut fork) => {
-                eprintln!("writing data fork {:?} to stdout", segment);
-                io::copy(&mut fork, &mut io::stdout())?;
+                if let Some(mut sink) = handler.sink(Fork::Data) {
+                    io::copy(&mut fork, &mut sink)?;
+                }
             },
-            _ => {},
+            ArchiveMember::Other(id, mut fork) => {
+                if let Some(mut sink) = handler.sink(Fork::Other(id)) {
+                    io::copy(&mut fork, &mut sink)?;
+                }
+            },
+            ArchiveMember::RealName(name) => {
+                builder.name(name);
+            }
+            ArchiveMember::Comment(comment) => {
+                builder.comment(comment);
+            }
+            ArchiveMember::FinderInfo(finf) => {
+                builder.finf(finf);
+            }
+            ArchiveMember::MacInfo(minf) => {
+                builder.minf(minf);
+            }
+            ArchiveMember::FileDates(date) => {
+                builder.date(date);
+            }
         };
     }
-    Archive::builder()
-        .format(FORMAT_NAME.into())
-        .build()
+
+    builder.build()
         .ok_or(io::ErrorKind::Other.into())
 }
