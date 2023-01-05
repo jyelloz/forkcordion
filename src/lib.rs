@@ -3,8 +3,6 @@ use std::{
     io::{Read, Seek, Write, Result as IOResult},
 };
 
-use derive_more::{From, Into};
-
 pub(crate) mod io;
 mod finder;
 mod archive;
