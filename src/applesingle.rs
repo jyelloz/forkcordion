@@ -166,6 +166,12 @@ impl <R: Read> Read for AppleSingleArchiveReader<R> {
     }
 }
 
+impl <S: Seek> Seek for AppleSingleArchiveReader<S> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.reader.seek(pos)
+    }
+}
+
 struct SegmentReader<'a, R: Read> {
     segment: Segment,
     reader: io::Take<&'a mut AppleSingleArchiveReader<R>>,
