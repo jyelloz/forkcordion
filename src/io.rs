@@ -3,6 +3,7 @@ use std::io::{
     copy,
     ErrorKind,
     Result as IOResult,
+    SeekFrom,
     prelude::*,
 };
 
@@ -32,6 +33,12 @@ impl <R: Read> Read for CountingReader<R> {
         let bytes = inner.read(buf)?;
         *count += bytes as u64;
         Ok(bytes)
+    }
+}
+
+impl <S: Seek> Seek for CountingReader<S> {
+    fn seek(&mut self, pos: SeekFrom) -> IOResult<u64> {
+        self.inner.seek(pos)
     }
 }
 
