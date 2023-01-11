@@ -67,38 +67,33 @@ pub struct Creator(FourCC);
 #[deku(endian="big")]
 pub struct FinderFlags {
     #[deku(bits = "1")]
-    #[deprecated]
-    pub is_on_desktop: bool,
-    #[deku(bits = "3")]
-    pub color: u8,
-    #[deku(bits = "1")]
-    pub color_reserved: bool,
-
-    #[deprecated]
-    #[deku(bits = "1")]
-    pub requires_switch_launch: bool,
-
-    #[deku(bits = "1")]
-    pub is_shared: bool,
-
-    #[deku(bits = "1")]
-    pub has_no_inits: bool ,
-
-    #[deku(bits = "1")]
-    pub has_been_inited: bool,
-
-    #[deku(bits = "1", pad_bits_before = "1")]
-    pub has_custom_icon: bool,
-    #[deku(bits = "1")]
-    pub is_stationery: bool,
-    #[deku(bits = "1")]
-    pub name_locked: bool,
-    #[deku(bits = "1")]
-    pub has_bundle: bool,
+    pub is_alias: bool,
     #[deku(bits = "1")]
     pub is_invisible: bool,
     #[deku(bits = "1")]
-    pub is_alias: bool,
+    pub has_bundle: bool,
+    #[deku(bits = "1")]
+    pub name_locked: bool,
+    #[deku(bits = "1")]
+    pub is_stationery: bool,
+    #[deku(bits = "1", pad_bits_after = "1")]
+    pub has_custom_icon: bool,
+
+    #[deku(bits = "1")]
+    pub has_been_inited: bool,
+    #[deku(bits = "1")]
+    pub has_no_inits: bool,
+    #[deku(bits = "1")]
+    pub is_shared: bool,
+    #[deprecated]
+    #[deku(bits = "1", pad_bits_after = "1")]
+    pub requires_switch_launch: bool,
+
+    #[deku(bits = "3")]
+    pub color: u8,
+    #[deku(bits = "1")]
+    #[deprecated]
+    pub is_on_desktop: bool,
 }
 
 impl fmt::Display for FinderFlags {
@@ -109,10 +104,6 @@ impl fmt::Display for FinderFlags {
             text.push("ON_DESKTOP".to_string());
         }
         text.push(format!("COLOR={}", self.color));
-        #[allow(deprecated)]
-        if self.color_reserved {
-            text.push("COLOR_RESERVED".to_string());
-        }
         #[allow(deprecated)]
         if self.requires_switch_launch {
             text.push("REQUIRES_SWITCH_LAUNCH".to_string());
