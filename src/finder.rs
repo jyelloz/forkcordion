@@ -149,10 +149,8 @@ impl fmt::Debug for FinderFlags {
 #[derive(Debug, DekuRead, DekuWrite, Default, Clone, Copy, PartialEq, Eq)]
 #[deku(endian = "big")]
 pub struct Point {
-    #[deku(bits = "16")]
-    vertical: i16,
-    #[deku(bits = "16")]
-    horizontal: i16,
+    pub vertical: i16,
+    pub horizontal: i16,
 }
 
 /// The ID of the window representing the folder containing this file
@@ -164,10 +162,10 @@ pub struct Folder(#[deku(bits = "16")] u16);
 /// developer.
 #[derive(Debug, DekuRead, DekuWrite, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ExtendedFinderInfo {
-    icon_id: i16,
-    filename_script: FilenameScript,
-    comment_id: i16,
-    put_away_from: i32,
+    pub icon_id: i16,
+    pub filename_script: FilenameScript,
+    pub comment_id: i16,
+    pub put_away_from: i32,
 }
 
 /// The script used to display the filename. If unspecified, then the finder
