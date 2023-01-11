@@ -190,10 +190,10 @@ impl Default for FilenameScript {
 /// A bitfield data structure containing the "locked" and "protected" bits.
 #[derive(Default, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq, From, Into)]
 pub struct MacInfo {
+    #[deku(bits = "1", pad_bits_before = "30")]
+    pub is_protected: bool,
     #[deku(bits = "1")]
     pub is_locked: bool,
-    #[deku(bits = "1", pad_bits_after = "30")]
-    pub is_protected: bool,
 }
 
 impl fmt::Display for MacInfo {
