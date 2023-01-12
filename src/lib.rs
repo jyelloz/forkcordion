@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    io::{Read, Seek, Write, Result as IOResult},
+    io::{Read, Seek, Write, Result, SeekFrom},
 };
 
 pub(crate) mod io;
@@ -116,10 +116,10 @@ pub struct ArchiveWriter<W> {
 }
 
 impl <W: Write> Write for ArchiveWriter<W> {
-    fn flush(&mut self) -> IOResult<()> {
+    fn flush(&mut self) -> Result<()> {
         self.file.flush()
     }
-    fn write(&mut self, buf: &[u8]) -> IOResult<usize> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.file.write(buf)
     }
 }
@@ -131,11 +131,11 @@ struct SectionWriter<'a, W> {
 }
 
 impl <'a, W: Write + Seek> Write for SectionWriter<'a, W> {
-    fn flush(&mut self) -> IOResult<()> {
+    fn flush(&mut self) -> Result<()> {
         self.archive.flush()?;
         Ok(())
     }
-    fn write(&mut self, buf: &[u8]) -> IOResult<usize> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let Self { position, entry, archive } = self;
         let len = entry.len as usize;
         if *position >= len {
