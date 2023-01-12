@@ -239,48 +239,9 @@ impl <'a, R: Read> SegmentReader<'a, R> {
         let reader = reader.take(segment.len_u64());
         Ok(Self { segment, reader })
     }
-    fn wrap(self) -> io::Result<ArchiveMember<'a>> {
+    fn wrap(self) -> io::Result<ArchiveMember> {
         let Self { segment, mut reader } = self;
-        let len = segment.len_usize();
-        let id = segment.id;
-        let member = match segment.entry_type() {
-            Some(EntryType::RealName) => {
-                let mut buf = Vec::with_capacity(len);
-                reader.read_to_end(&mut buf)?;
-                ArchiveMember::RealName(Filename(buf))
-            },
-            Some(EntryType::Comment) => {
-                let mut buf = Vec::with_capacity(len);
-                reader.read_to_end(&mut buf)?;
-                ArchiveMember::Comment(Comment(buf))
-            },
-            Some(EntryType::FinderInfo) => {
-                let mut buf = [0u8; 16];
-                reader.read_exact(&mut buf)?;
-                let (_, info) = FinderInfo::from_bytes((&buf, 0))?;
-                ArchiveMember::FinderInfo(info)
-            },
-            Some(EntryType::FileDates) => {
-                let mut buf = [0u8; 16];
-                reader.read_exact(&mut buf)?;
-                let (_, dates) = Dates::from_bytes((&buf, 0))?;
-                ArchiveMember::FileDates(dates)
-            },
-            Some(EntryType::MacintoshFileInfo) => {
-                let mut buf = [0u8; 4];
-                reader.read_exact(&mut buf)?;
-                let (_, info) = MacInfo::from_bytes((&buf, 0))?;
-                ArchiveMember::MacInfo(info)
-            },
-            Some(EntryType::ResourceFork) => ArchiveMember::ResourceFork(
-                Box::new(reader)
-            ),
-            Some(EntryType::DataFork) => ArchiveMember::DataFork(
-                Box::new(reader)
-            ),
-            _ => ArchiveMember::Other(id, Box::new(reader)),
-        };
-        Ok(member)
+        segment.wrap(&mut reader)
     }
 }
 
