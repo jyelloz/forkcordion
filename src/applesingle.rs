@@ -3,6 +3,8 @@ use std::{
     fmt,
     io::{
         self,
+        Seek,
+        SeekFrom,
         prelude::*,
     },
 };
@@ -11,12 +13,16 @@ use num_enum::{TryFromPrimitive, IntoPrimitive};
 use deku::prelude::*;
 
 use super::{
-    Filename,
     Comment,
     Dates,
+    Entry,
+    Filename,
     FinderInfo,
     MacInfo,
-    archive::Archive,
+    archive::{
+        Archive,
+        SeekableArchive,
+    },
     io::{
         ReadExt as _,
         CountingReader,
