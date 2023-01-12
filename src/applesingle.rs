@@ -49,7 +49,7 @@ enum EntryType {
     AFPDirectoryID,
 }
 
-#[derive(DekuRead, DekuWrite)]
+#[derive(Debug, DekuRead, DekuWrite, Clone, Copy, PartialEq, Eq)]
 #[deku(endian = "big", magic = b"\x00\x05\x16\x00\x00\x02\x00\x00")]
 struct AppleSingleHeader {
     #[deku(pad_bytes_before = "16")]
