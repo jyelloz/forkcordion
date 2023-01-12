@@ -314,3 +314,46 @@ pub fn parse<R: Read, H: Handler>(
     builder.build()
         .ok_or(io::ErrorKind::Other.into())
 }
+
+pub fn parse_seekable<R: Read + Seek>(
+    mut archive: R,
+) -> io::Result<SeekableArchive<R>> {
+    let segments = AppleSingleArchiveReader::seekable(&mut archive)?
+        .segments_by_offset();
+    let mut builder = SeekableArchive::builder(archive);
+    builder.format(FORMAT_NAME.into());
+    for segment in segments {
+        let member = {
+            let mut reader = builder.entry(segment.into())?;
+            segment.wrap(&mut reader)?
+        };
+        match member {
+            ArchiveMember::ResourceFork(entry) => {
+                builder.rsrc_fork(entry);
+            },
+            ArchiveMember::DataFork(entry) => {
+                builder.data_fork(entry);
+            },
+            ArchiveMember::Other(_) => {
+                // TODO: expose non-resource/data forks somehow
+            },
+            ArchiveMember::RealName(name) => {
+                builder.name(name);
+            }
+            ArchiveMember::Comment(comment) => {
+                builder.comment(comment);
+            }
+            ArchiveMember::FinderInfo(finf) => {
+                builder.finf(finf);
+            }
+            ArchiveMember::MacInfo(minf) => {
+                builder.minf(minf);
+            }
+            ArchiveMember::FileDates(date) => {
+                builder.date(date);
+            }
+        };
+    }
+    builder.build()
+        .ok_or(io::ErrorKind::Other.into())
+}
