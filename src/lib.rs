@@ -9,6 +9,11 @@ mod archive;
 mod date;
 pub mod applesingle;
 
+pub use crate::archive::{
+    Archive,
+    Format,
+    SeekableArchive,
+};
 pub use crate::date::{Date, Dates};
 pub use crate::finder::{
     FileType,
