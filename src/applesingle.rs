@@ -271,20 +271,25 @@ pub fn parse<R: Read, H: Handler>(
     for segment in segments {
         let member = SegmentReader::from_segment(segment, &mut reader)
             .and_then(SegmentReader::wrap)?;
-        eprintln!("{:?}", member);
         match member {
-            ArchiveMember::ResourceFork(mut fork) => {
+            ArchiveMember::ResourceFork(segment) => {
                 if let Some(mut sink) = handler.sink(Fork::Rsrc) {
+                    let mut fork = Entry::from(segment)
+                        .limit(&mut reader)?;
                     io::copy(&mut fork, &mut sink)?;
                 }
             },
-            ArchiveMember::DataFork(mut fork) => {
+            ArchiveMember::DataFork(segment) => {
                 if let Some(mut sink) = handler.sink(Fork::Data) {
+                    let mut fork = Entry::from(segment)
+                        .limit(&mut reader)?;
                     io::copy(&mut fork, &mut sink)?;
                 }
             },
-            ArchiveMember::Other(id, mut fork) => {
-                if let Some(mut sink) = handler.sink(Fork::Other(id)) {
+            ArchiveMember::Other(segment) => {
+                if let Some(mut sink) = handler.sink(Fork::Other(segment.id)) {
+                    let mut fork = Entry::from(segment)
+                        .limit(&mut reader)?;
                     io::copy(&mut fork, &mut sink)?;
                 }
             },
@@ -303,7 +308,7 @@ pub fn parse<R: Read, H: Handler>(
             ArchiveMember::FileDates(date) => {
                 builder.date(date);
             }
-        };
+        }
     }
 
     builder.build()
