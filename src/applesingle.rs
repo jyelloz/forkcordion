@@ -139,28 +139,28 @@ impl ArchiveHeader {
     }
 }
 
-pub enum ArchiveMember<'a> {
-    DataFork(Box<dyn 'a + Read>),
-    ResourceFork(Box<dyn 'a + Read>),
+pub enum ArchiveMember {
+    DataFork(Entry),
+    ResourceFork(Entry),
     RealName(Filename),
     Comment(Comment),
     FileDates(Dates),
     FinderInfo(FinderInfo),
     MacInfo(MacInfo),
-    Other(u32, Box<dyn 'a + Read>),
+    Other(Entry),
 }
 
-impl <'a> fmt::Debug for ArchiveMember<'a> {
+impl fmt::Debug for ArchiveMember {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DataFork(_) => write!(f, "DataFork(..)"),
-            Self::ResourceFork(_) => write!(f, "ResourceFork(..)"),
-            Self::RealName(filename) => write!(f, "RealName({})", filename),
-            Self::Comment(comment) =>  write!(f, "Comment({})", comment),
-            Self::FileDates(dates) => write!(f, "FileDates({:?})", dates),
-            Self::FinderInfo(info) => write!(f, "FinderInfo({:?})", info),
+            Self::DataFork(entry) => write!(f, "DataFork({entry:?})"),
+            Self::ResourceFork(entry) => write!(f, "ResourceFork({entry:?})"),
+            Self::RealName(filename) => write!(f, "RealName({filename})"),
+            Self::Comment(comment) =>  write!(f, "Comment({comment})"),
+            Self::FileDates(dates) => write!(f, "FileDates({dates:?})"),
+            Self::FinderInfo(info) => write!(f, "FinderInfo({info:?})"),
             Self::MacInfo(info) => write!(f, "MacInfo({})", info),
-            Self::Other(id, _) => write!(f, "Other({}, ..)", id),
+            Self::Other(entry) => write!(f, "Other({entry:?})"),
         }
     }
 }
