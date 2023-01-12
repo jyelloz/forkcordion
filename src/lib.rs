@@ -28,16 +28,29 @@ impl Header {
     }
 }
 
-pub struct EntryBuilder {
-    id: Option<u32>,
-    offset: Option<u32>,
-    len: Option<u32>,
-}
-
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Entry {
     id: u32,
     offset: u32,
     len: u32,
+}
+
+impl Entry {
+    /// Applies the limit defined in this Entry to the given input stream. If
+    /// your stream is seekable, you should use
+    /// [`fixate()`][Entry::fixate] which will ensure that the resulting
+    /// stream captures the exact region that the entry represents.
+    pub fn limit<'a, R: Read + 'a>(&self, stream: R) -> Result<Box<dyn Read + 'a>> {
+        Ok(Box::new(stream.take(self.len as u64)))
+    }
+    /// Applies the boundaries defined in this Entry to the given seekable
+    /// input stream. This method will seek to the offset contained in this
+    /// structure and restrict the amount of readable bytes in the returned
+    /// value to the amount of bytes in the entry.
+    pub fn fixate<'a, R: Read + Seek + 'a>(&self, mut stream: R) -> Result<Box<dyn Read + 'a>> {
+        stream.seek(SeekFrom::Start(self.offset as u64))?;
+        Ok(Box::new(stream.take(self.len as u64)))
+    }
 }
 
 /// The raw data fork of a file.
