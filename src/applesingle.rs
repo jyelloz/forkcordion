@@ -205,6 +205,17 @@ impl <R: Read> AppleSingleArchiveReader<R> {
     }
 }
 
+impl <R: Read + Seek> AppleSingleArchiveReader<R> {
+    fn seekable(reader: R) -> io::Result<Self> {
+        let mut archive = Self {
+            reader: reader.counting(),
+            header: ArchiveHeader::default(),
+        };
+        archive.read_header()?;
+        Ok(archive)
+    }
+}
+
 impl <R: Read> Read for AppleSingleArchiveReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.reader.read(buf)
