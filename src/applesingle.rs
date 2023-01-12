@@ -257,7 +257,7 @@ pub enum Fork {
     Other(u32),
 }
 pub trait Handler {
-    fn sink(&mut self, fork: Fork) -> Option<Box<dyn Write>>;
+    fn sink<'a>(&'a mut self, fork: Fork) -> Option<Box<dyn Write + 'a>>;
 }
 
 pub fn parse<R: Read, H: Handler>(
