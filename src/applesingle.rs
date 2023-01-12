@@ -77,6 +77,51 @@ impl Segment {
     pub fn len_u64(&self) -> u64 {
         self.len as u64
     }
+    fn wrap<R: Read>(&self, reader: &mut R) -> io::Result<ArchiveMember> {
+        let len = self.len_usize();
+        let entry: Entry = (*self).into();
+        let member = match self.entry_type() {
+            Some(EntryType::RealName) => {
+                let mut buf = Vec::with_capacity(len);
+                reader.read_to_end(&mut buf)?;
+                ArchiveMember::RealName(Filename(buf))
+            },
+            Some(EntryType::Comment) => {
+                let mut buf = Vec::with_capacity(len);
+                reader.read_to_end(&mut buf)?;
+                ArchiveMember::Comment(Comment(buf))
+            },
+            Some(EntryType::FinderInfo) => {
+                let mut buf = [0u8; 16];
+                reader.read_exact(&mut buf)?;
+                let (_, info) = FinderInfo::from_bytes((&buf, 0))?;
+                ArchiveMember::FinderInfo(info)
+            },
+            Some(EntryType::FileDates) => {
+                let mut buf = [0u8; 16];
+                reader.read_exact(&mut buf)?;
+                let (_, dates) = Dates::from_bytes((&buf, 0))?;
+                ArchiveMember::FileDates(dates)
+            },
+            Some(EntryType::MacintoshFileInfo) => {
+                let mut buf = [0u8; 4];
+                reader.read_exact(&mut buf)?;
+                let (_, info) = MacInfo::from_bytes((&buf, 0))?;
+                ArchiveMember::MacInfo(info)
+            },
+            Some(EntryType::ResourceFork) => ArchiveMember::ResourceFork(entry),
+            Some(EntryType::DataFork) => ArchiveMember::DataFork(entry),
+            _ => ArchiveMember::Other(entry),
+        };
+        Ok(member)
+    }
+}
+
+impl Into<Entry> for Segment {
+    fn into(self) -> Entry {
+        let Self { id, offset, len } = self;
+        Entry { id, offset, len }
+    }
 }
 
 #[derive(Default)]
