@@ -171,7 +171,7 @@ struct AppleSingleArchiveReader<R> {
 }
 
 impl <R: Read> AppleSingleArchiveReader<R> {
-    fn new(reader: R) -> io::Result<Self> {
+    fn streaming(reader: R) -> io::Result<Self> {
         let mut archive = Self {
             reader: reader.counting(),
             header: ArchiveHeader::default(),
@@ -286,7 +286,7 @@ pub fn parse<R: Read, H: Handler>(
     archive: R,
     handler: &mut H,
 ) -> io::Result<Archive> {
-    let mut reader = AppleSingleArchiveReader::new(archive)?;
+    let mut reader = AppleSingleArchiveReader::streaming(archive)?;
     let segments = reader.segments_by_offset();
     let mut builder = Archive::builder();
     builder.format(FORMAT_NAME.into());
